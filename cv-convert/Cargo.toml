@@ -15,7 +15,7 @@ features = ['docs-only']
 
 [features]
 default = [
-    'image_0-24',
+    'image_0-25',
     'imageproc_0-23',
     'opencv_0-91',
     'tch_0-16',
@@ -23,7 +23,7 @@ default = [
     'ndarray_0-15',
 ]
 docs-only = [
-    'image_0-24',
+    'image_0-25',
     'imageproc_0-23',
     'opencv_0-91',
     'tch_0-16',
@@ -56,6 +56,13 @@ optional = true
 
 [dependencies.image_0-24]
 version = '0.24'
+package = 'image'
+default-features = true
+features = []
+optional = true
+
+[dependencies.image_0-25]
+version = '0.25'
 package = 'image'
 default-features = true
 features = []
