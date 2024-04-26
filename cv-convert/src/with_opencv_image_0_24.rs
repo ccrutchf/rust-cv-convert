@@ -1,5 +1,9 @@
 use crate::image;
-use crate::opencv::{core as cv, prelude::*};
+use crate::opencv::{
+    core as cv, 
+    prelude::*,
+    boxed_ref::BoxedRef,
+};
 use crate::with_opencv::MatExt;
 use crate::{common::*, OpenCvElement, TryFromCv, TryIntoCv};
 use std::ops::Deref;
@@ -18,7 +22,7 @@ where
 }
 
 // &ImageBuffer -> Mat
-impl<P, Container> TryFromCv<&image::ImageBuffer<P, Container>> for cv::Mat
+impl<P, Container> TryFromCv<&image::ImageBuffer<P, Container>> for BoxedRef<'_, cv::Mat>
 where
     P: image::Pixel,
     P::Subpixel: OpenCvElement,
@@ -27,17 +31,25 @@ where
     type Error = Error;
     fn try_from_cv(from: &image::ImageBuffer<P, Container>) -> Result<Self, Self::Error> {
         let (width, height) = from.dimensions();
-        let cv_type = cv::CV_MAKETYPE(P::Subpixel::DEPTH, P::CHANNEL_COUNT as i32);
-        let mat = unsafe {
-            cv::Mat::new_rows_cols_with_data(
-                height as i32,
-                width as i32,
-                cv_type,
-                from.as_ptr() as *mut _,
-                cv::Mat_AUTO_STEP,
-            )?
-            .try_clone()?
-        };
+        // let cv_type = cv::CV_MAKETYPE(P::Subpixel::DEPTH, P::CHANNEL_COUNT as i32);
+        let mat = cv::Mat::new_rows_cols_with_data(
+            height as i32,
+            width as i32,
+            // cv_type,
+            from.as_ptr() as *mut _,
+            // cv::Mat_AUTO_STEP,
+        )?
+        .try_clone()?;
+        // let mat = unsafe {
+        //     cv::Mat::new_rows_cols_with_data(
+        //         height as i32,
+        //         width as i32,
+        //         // cv_type,
+        //         from.as_ptr() as *mut _,
+        //         // cv::Mat_AUTO_STEP,
+        //     )?
+        //     .try_clone()?
+        // };
         Ok(mat)
     }
 }

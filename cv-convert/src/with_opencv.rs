@@ -1,4 +1,8 @@
-use crate::opencv::{core as core_cv, prelude::*};
+use crate::opencv::{
+    core as core_cv, 
+    prelude::*,
+    boxed_ref::BoxedRef,
+};
 use crate::{common::*, TryFromCv};
 use half::f16;
 
@@ -178,7 +182,7 @@ where
     }
 }
 
-impl<T> TryFromCv<&core_cv::Point_<T>> for core_cv::Mat
+impl<T> TryFromCv<&core_cv::Point_<T>> for BoxedRef<'_, core_cv::Mat>
 where
     T: core_cv::DataType,
 {
@@ -202,7 +206,7 @@ where
     }
 }
 
-impl<T> TryFromCv<&core_cv::Point3_<T>> for core_cv::Mat
+impl<T> TryFromCv<&core_cv::Point3_<T>> for BoxedRef<'_, core_cv::Mat>
 where
     T: core_cv::DataType,
 {
