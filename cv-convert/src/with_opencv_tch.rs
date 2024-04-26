@@ -243,6 +243,19 @@ impl TryFromCv<&TchTensorAsImage> for cv::Mat {
         let depth = tch_kind_to_opencv_depth(tensor.f_kind()?)?;
         let typ = cv::CV_MAKE_TYPE(depth, channels as i32);
 
+        #[cfg(feature = "opencv_0-91")]
+        let mat = unsafe {
+            cv::Mat::new_rows_cols_with_data_unsafe(
+                rows as i32,
+                cols as i32,
+                typ,
+                tensor.data_ptr(),
+                /* step = */
+                cv::Mat_AUTO_STEP,
+            )?
+            .try_clone()?
+        };
+        #[cfg(not(feature = "opencv_0-91"))]
         let mat = unsafe {
             cv::Mat::new_rows_cols_with_data(
                 rows as i32,
@@ -275,6 +288,9 @@ impl TryFromCv<&tch::Tensor> for cv::Mat {
         let size: Vec<_> = tensor.size().into_iter().map(|dim| dim as i32).collect();
         let depth = tch_kind_to_opencv_depth(tensor.f_kind()?)?;
         let typ = cv::CV_MAKETYPE(depth, 1);
+        #[cfg(feature = "opencv_0-91")]
+        let mat = unsafe { cv::Mat::new_nd_with_data_unsafe(&size, typ, tensor.data_ptr(), None)? };
+        #[cfg(not(feature = "opencv_0-91"))]
         let mat = unsafe { cv::Mat::new_nd_with_data(&size, typ, tensor.data_ptr(), None)? };
         Ok(mat)
     }

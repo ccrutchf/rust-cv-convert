@@ -28,6 +28,29 @@ where
     fn try_from_cv(from: &image::ImageBuffer<P, Container>) -> Result<Self, Self::Error> {
         let (width, height) = from.dimensions();
         let cv_type = cv::CV_MAKETYPE(P::Subpixel::DEPTH, P::CHANNEL_COUNT as i32);
+        // let mat = unsafe {
+        //     cv::Mat::new_rows_cols_with_data(
+        //         height as i32,
+        //         width as i32,
+        //         cv_type,
+        //         from.as_ptr() as *mut _,
+        //         cv::Mat_AUTO_STEP,
+        //     )?
+        //     .try_clone()?
+        // };
+
+        #[cfg(feature = "opencv_0-91")]
+        let mat = unsafe {
+            cv::Mat::new_rows_cols_with_data_unsafe(
+                height as i32,
+                width as i32,
+                cv_type,
+                from.as_ptr() as *mut _,
+                cv::Mat_AUTO_STEP,
+            )?
+            .try_clone()?
+        };
+        #[cfg(not(feature = "opencv_0-91"))]
         let mat = unsafe {
             cv::Mat::new_rows_cols_with_data(
                 height as i32,
