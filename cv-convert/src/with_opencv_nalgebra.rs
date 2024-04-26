@@ -1,5 +1,10 @@
 use crate::nalgebra::{self as na, geometry as geo};
-use crate::opencv::{calib3d, core as core_cv, prelude::*};
+use crate::opencv::{
+    calib3d, 
+    core as core_cv, 
+    prelude::*, 
+    // boxed_ref::BoxedRef
+};
 use crate::{common::*, FromCv, TryFromCv, TryIntoCv};
 
 // Note for future maintainers: Since the matrixes need to accommodate any size Matrix, we are using na::OMatrix instead of SMatrix.
@@ -25,10 +30,14 @@ impl TryFromCv<&OpenCvPose<&core_cv::Point3d>> for geo::Isometry3<f64> {
     fn try_from_cv(pose: &OpenCvPose<&core_cv::Point3d>) -> Result<Self> {
         let OpenCvPose { rvec, tvec } = *pose;
         let rotation = {
-            let rvec_mat = {
-                let core_cv::Point3_ { x, y, z, .. } = *rvec;
-                core_cv::Mat::from_slice(&[x, y, z])?
-            };
+            let point_slice = &[rvec.x, rvec.y, rvec.z];
+            let rvec_mat = core_cv::Mat::from_slice(point_slice)?;
+            // let core_cv::Point3_ { x, y, z, .. } = *rvec;
+            // let rvec_mat = core_cv::Mat::from_slice(&[x, y, z])?;
+            // let rvec_mat = {
+            //     let core_cv::Point3_ { x, y, z, .. } = *rvec;
+            //     core_cv::Mat::from_slice(&[x, y, z])?
+            // };
             let mut rotation_mat = core_cv::Mat::zeros(3, 3, core_cv::CV_64FC1)?.to_mat()?;
             calib3d::rodrigues(&rvec_mat, &mut rotation_mat, &mut core_cv::Mat::default())?;
             let rotation_matrix: na::Matrix3<f64> = TryFromCv::try_from_cv(rotation_mat)?;
@@ -162,8 +171,9 @@ impl TryFromCv<&geo::Isometry3<f64>> for OpenCvPose<core_cv::Mat> {
             calib3d::rodrigues(&rotation_mat, &mut rvec_mat, &mut core_cv::Mat::default())?;
             rvec_mat
         };
-        let tvec = core_cv::Mat::from_slice(&[translation.x, translation.y, translation.z])?;
-
+        let t_slice = &[translation.x, translation.y, translation.z];
+        let tvec_boxed = core_cv::Mat::from_slice(t_slice)?;
+        let tvec: Mat = tvec_boxed.clone_pointee();
         Ok(OpenCvPose { rvec, tvec })
     }
 }
@@ -273,9 +283,12 @@ where
 
     fn try_from_cv(from: &na::Matrix<N, R, C, S>) -> Result<Self> {
         let nrows = from.nrows();
-        let mat =
-            core_cv::Mat::from_slice(from.transpose().as_slice())?.reshape(1, nrows as i32)?;
-        Ok(mat)
+        let transposed = from.transpose();
+        // let t_slice = transposed.to_vec();
+        let mat = core_cv::Mat::from_slice(transposed.as_slice())?;
+        let shaped_mat = mat.reshape(1, nrows as i32)?;
+        // let mat = core_cv::Mat::from_slice(from.transpose().as_slice())?.reshape(1, nrows as i32)?;
+        Ok(shaped_mat.clone_pointee())
     }
 }
 

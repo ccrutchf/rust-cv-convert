@@ -65,8 +65,9 @@ where
         };
         let array = from.as_standard_layout();
         let slice = array.as_slice().unwrap();
-        let mat = cv::Mat::from_slice(slice)?.reshape_nd(*channels, shape)?;
-        Ok(mat)
+        let mat = cv::Mat::from_slice(slice)?;
+        let reshaped_mat = mat.reshape_nd(*channels, shape)?;
+        Ok(reshaped_mat.clone_pointee())
     }
 }
 

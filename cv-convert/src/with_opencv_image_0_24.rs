@@ -1,15 +1,17 @@
 use crate::image;
+use num_traits::ToPrimitive;
 use crate::opencv::{
-    core as cv, 
+    // core as cv,
+    core::{self as cv, Mat, DataType, Point3_},
     prelude::*,
-    boxed_ref::BoxedRef,
+    // boxed_ref::BoxedRef,
 };
 use crate::with_opencv::MatExt;
 use crate::{common::*, OpenCvElement, TryFromCv, TryIntoCv};
 use std::ops::Deref;
 
 // ImageBuffer -> Mat
-impl<P, Container> TryFromCv<image::ImageBuffer<P, Container>> for cv::Mat
+impl<P, Container> TryFromCv<image::ImageBuffer<P, Container>> for Mat
 where
     P: image::Pixel,
     P::Subpixel: OpenCvElement,
@@ -21,8 +23,10 @@ where
     }
 }
 
+
+
 // &ImageBuffer -> Mat
-impl<P, Container> TryFromCv<&image::ImageBuffer<P, Container>> for BoxedRef<'_, cv::Mat>
+impl<P, Container> TryFromCv<&image::ImageBuffer<P, Container>> for cv::Mat
 where
     P: image::Pixel,
     P::Subpixel: OpenCvElement,
@@ -31,31 +35,154 @@ where
     type Error = Error;
     fn try_from_cv(from: &image::ImageBuffer<P, Container>) -> Result<Self, Self::Error> {
         let (width, height) = from.dimensions();
-        // let cv_type = cv::CV_MAKETYPE(P::Subpixel::DEPTH, P::CHANNEL_COUNT as i32);
-        let mat = cv::Mat::new_rows_cols_with_data(
-            height as i32,
-            width as i32,
-            // cv_type,
-            from.as_ptr() as *mut _,
-            // cv::Mat_AUTO_STEP,
-        )?
-        .try_clone()?;
-        // let mat = unsafe {
-        //     cv::Mat::new_rows_cols_with_data(
-        //         height as i32,
-        //         width as i32,
-        //         // cv_type,
-        //         from.as_ptr() as *mut _,
-        //         // cv::Mat_AUTO_STEP,
-        //     )?
-        //     .try_clone()?
-        // };
+        let cv_type = cv::CV_MAKETYPE(P::Subpixel::DEPTH, P::CHANNEL_COUNT as i32);
+        // let raw_pixels = from.to_vec();
+        // let raw_pixels = from.clone().pixels().map(|p: Pixel| )
+        // let mat = cv::Mat::new_rows_cols_with_data(
+        //     height as i32,
+        //     width as i32,
+        //     // cv_type,
+        //     // from.as_ptr() as *mut _,
+        //     raw_pixels.as_slice(),
+        //     // from.as_bytes(),
+        //     // cv::Mat_AUTO_STEP,
+        // )?
+        // .try_clone()?;
+        let mat = unsafe {
+            cv::Mat::new_rows_cols_with_data_unsafe(
+                height as i32,
+                width as i32,
+                cv_type,
+                from.as_ptr() as *mut _,
+                cv::Mat_AUTO_STEP,
+            )?
+            .try_clone()?
+        };
         Ok(mat)
     }
 }
+// impl<P, Container> TryFromCv<&image::ImageBuffer<P, Container>> for BoxedRef<'_, cv::Mat>
+// where
+//     P: image::Pixel + 'static,
+//     P::Subpixel: 'static + image::Primitive + OpenCvElement,
+//     Container: Deref<Target = [P::Subpixel]> + Clone,
+// {
+//     type Error = Error;
+
+//     fn try_from_cv(from: &image::ImageBuffer<P, Container>) -> Result<Self, Self::Error> {
+//         let (width, height) = from.dimensions();
+//         let cv_type = cv::CV_MAKETYPE(P::Subpixel::DEPTH, P::CHANNEL_COUNT as i32);
+
+//         // Assuming Subpixel is a type that implements `ToPrimitive` and `opencv::prelude::DataType`
+//         let raw_pixels: Vec<_> = from
+//             .clone()
+//             .into_raw()
+//             .into_iter()
+//             .map(|p| p.to_u8().expect("Failed to convert to u8"))
+//             .collect();
+
+//         let mat = unsafe {
+//             cv::Mat::new_rows_cols_with_data(
+//                 height as i32,
+//                 width as i32,
+//                 cv_type,
+//                 raw_pixels.as_ptr() as *mut _,
+//                 cv::Mat_AUTO_STEP,
+//             )?
+//             .try_clone()?
+//         };
+
+//         Ok(BoxedRef::Owned(mat))
+//         // Ok(mat)
+//     }
+// }
+// impl<P, Container> TryFromCv<&image::ImageBuffer<P, Container>> for Box<cv::Mat>
+// where
+//     P: image::Pixel + 'static,
+//     P::Subpixel: 'static + image::Primitive + OpenCvElement + ToPrimitive,
+//     Container: Deref<Target = [P::Subpixel]> + Clone,
+// {
+//     type Error = Error;
+
+//     fn try_from_cv(from: &image::ImageBuffer<P, Container>) -> Result<Self, Self::Error> {
+//         let (width, height) = from.dimensions();
+//         let cv_type = cv::CV_MAKETYPE(P::Subpixel::DEPTH, P::CHANNEL_COUNT as i32);
+
+//         // Assuming Subpixel is a type that implements `ToPrimitive` and `opencv::prelude::DataType`
+//         let raw_pixels: Vec<u8> = from
+//             .clone()
+//             .into_raw()
+//             .into_iter()
+//             .flat_map(|p| p.to_u8()) // Convert Option<u8> directly, as we're already iterating
+//             .collect();
+
+//         // Calculate the appropriate step size for the Mat (bytes per row)
+//         let step = (width * P::CHANNEL_COUNT as u32 * std::mem::size_of::<u8>() as u32) as usize;
+//         let mat = unsafe {
+//             cv::Mat::new_rows_cols_with_data(
+//                 height as i32,
+//                 width as i32,
+//                 cv_type,
+//                 raw_pixels.as_ptr() as *mut _,
+//                 step as i32, // cv::Mat_AUTO_STEP might also be used if step is not known
+//             )?
+//         };
+
+//         Ok(Box::new(mat))
+//     }
+// }
+// impl<P, Container> TryFromCv<&image::ImageBuffer<P, Container>> for BoxedRef<'static, cv::Mat>
+// where
+//     P: image::Pixel + 'static,
+//     P::Subpixel: 'static + image::Primitive + OpenCvElement + ToPrimitive,
+//     Container: Deref<Target = [P::Subpixel]> + Clone,
+// {
+//     type Error = Error;
+
+//     fn try_from_cv(from: &image::ImageBuffer<P, Container>) -> Result<Self, Self::Error> {
+//         let (width, height) = from.dimensions();
+//         let cv_type = cv::CV_MAKETYPE(P::Subpixel::DEPTH, P::CHANNEL_COUNT as i32);
+
+//         // Assuming that 'from' is an ImageBuffer with 'P::Subpixel' types that directly map to an OpenCV-understandable type
+//         let data = from.as_ptr() as *const P::Subpixel;
+
+//         let raw_pixels: &[P::Subpixel] = unsafe {
+//             std::slice::from_raw_parts(data, (width * height * P::CHANNEL_COUNT as u32) as usize)
+//         };
+
+//         let mat = cv::Mat::new_rows_cols_with_data(height as i32, width as i32, raw_pixels)?;
+
+//         Ok(mat)
+//     }
+// }
+// impl<P, Container> TryFromCv<&image::ImageBuffer<P, Container>> for Mat
+// where
+//     P: image::Pixel + 'static,
+//     P::Subpixel: 'static + image::Primitive + DataType,
+//     Container: Deref<Target = [P::Subpixel]> + Clone,
+// {
+//     type Error = Error;
+
+//     fn try_from_cv(from: &image::ImageBuffer<P, Container>) -> Result<Self, Self::Error> {
+//         let (width, height) = from.dimensions();
+//         let cv_type = P::Subpixel::opencv_type();
+
+//         let data = from.as_ptr() as *const _;
+//         let slice = unsafe {
+//             std::slice::from_raw_parts(data, (width * height * P::CHANNEL_COUNT as u32) as usize)
+//         };
+
+//         let mat = unsafe {
+//             Mat::new_rows_cols_with_data(height as i32, width as i32, slice)?
+//         };
+
+//         // Ok(BoxedRef::from(Box::new(mat)))
+//         Ok(mat.clone_pointee())
+//     }
+// }
 
 // &DynamicImage -> Mat
-impl TryFromCv<&image::DynamicImage> for cv::Mat {
+impl TryFromCv<&image::DynamicImage> for Mat {
     type Error = Error;
 
     fn try_from_cv(from: &image::DynamicImage) -> Result<Self, Self::Error> {
@@ -79,7 +206,7 @@ impl TryFromCv<&image::DynamicImage> for cv::Mat {
 }
 
 // DynamicImage -> Mat
-impl TryFromCv<image::DynamicImage> for cv::Mat {
+impl TryFromCv<image::DynamicImage> for Mat {
     type Error = Error;
     fn try_from_cv(from: image::DynamicImage) -> Result<Self, Self::Error> {
         (&from).try_into_cv()
@@ -87,10 +214,10 @@ impl TryFromCv<image::DynamicImage> for cv::Mat {
 }
 
 // &Mat -> DynamicImage
-impl TryFromCv<&cv::Mat> for image::DynamicImage {
+impl TryFromCv<&Mat> for image::DynamicImage {
     type Error = Error;
 
-    fn try_from_cv(from: &cv::Mat) -> Result<Self, Self::Error> {
+    fn try_from_cv(from: &Mat) -> Result<Self, Self::Error> {
         let rows = from.rows();
         let cols = from.cols();
         ensure!(
@@ -117,23 +244,23 @@ impl TryFromCv<&cv::Mat> for image::DynamicImage {
 }
 
 // Mat -> DynamicImage
-impl TryFromCv<cv::Mat> for image::DynamicImage {
+impl TryFromCv<Mat> for image::DynamicImage {
     type Error = Error;
 
-    fn try_from_cv(from: cv::Mat) -> Result<Self, Self::Error> {
+    fn try_from_cv(from: Mat) -> Result<Self, Self::Error> {
         (&from).try_into_cv()
     }
 }
 
 // &Mat -> gray ImageBuffer
-impl<T> TryFromCv<&cv::Mat> for image::ImageBuffer<image::Luma<T>, Vec<T>>
+impl<T> TryFromCv<&Mat> for image::ImageBuffer<image::Luma<T>, Vec<T>>
 where
     image::Luma<T>: image::Pixel,
     T: OpenCvElement + image::Primitive + DataType,
 {
     type Error = Error;
 
-    fn try_from_cv(from: &cv::Mat) -> Result<Self, Self::Error> {
+    fn try_from_cv(from: &Mat) -> Result<Self, Self::Error> {
         let rows = from.rows();
         let cols = from.cols();
         ensure!(
@@ -158,27 +285,27 @@ where
 }
 
 // Mat -> gray ImageBuffer
-impl<T> TryFromCv<cv::Mat> for image::ImageBuffer<image::Luma<T>, Vec<T>>
+impl<T> TryFromCv<Mat> for image::ImageBuffer<image::Luma<T>, Vec<T>>
 where
     image::Luma<T>: image::Pixel,
     T: OpenCvElement + image::Primitive + DataType,
 {
     type Error = Error;
 
-    fn try_from_cv(from: cv::Mat) -> Result<Self, Self::Error> {
+    fn try_from_cv(from: Mat) -> Result<Self, Self::Error> {
         (&from).try_into_cv()
     }
 }
 
 // &Mat -> rgb ImageBuffer
-impl<T> TryFromCv<&cv::Mat> for image::ImageBuffer<image::Rgb<T>, Vec<T>>
+impl<T> TryFromCv<&Mat> for image::ImageBuffer<image::Rgb<T>, Vec<T>>
 where
     image::Rgb<T>: image::Pixel<Subpixel = T>,
     T: OpenCvElement + image::Primitive + DataType,
 {
     type Error = Error;
 
-    fn try_from_cv(from: &cv::Mat) -> Result<Self, Self::Error> {
+    fn try_from_cv(from: &Mat) -> Result<Self, Self::Error> {
         let rows = from.rows();
         let cols = from.cols();
         ensure!(
@@ -203,14 +330,14 @@ where
 }
 
 // Mat -> rgb ImageBuffer
-impl<T> TryFromCv<cv::Mat> for image::ImageBuffer<image::Rgb<T>, Vec<T>>
+impl<T> TryFromCv<Mat> for image::ImageBuffer<image::Rgb<T>, Vec<T>>
 where
     image::Rgb<T>: image::Pixel<Subpixel = T>,
     T: OpenCvElement + image::Primitive + DataType,
 {
     type Error = Error;
 
-    fn try_from_cv(from: cv::Mat) -> Result<Self, Self::Error> {
+    fn try_from_cv(from: Mat) -> Result<Self, Self::Error> {
         (&from).try_into_cv()
     }
 }
@@ -218,7 +345,7 @@ where
 // Utility functions
 
 fn mat_to_image_buffer_gray<T>(
-    mat: &cv::Mat,
+    mat: &Mat,
     width: u32,
     height: u32,
 ) -> image::ImageBuffer<image::Luma<T>, Vec<T>>
@@ -237,7 +364,7 @@ where
 }
 
 fn mat_to_image_buffer_rgb<T>(
-    mat: &cv::Mat,
+    mat: &Mat,
     width: u32,
     height: u32,
 ) -> image::ImageBuffer<image::Rgb<T>, Vec<T>>
@@ -250,7 +377,7 @@ where
     match mat.as_slice::<T>() {
         Ok(slice) => Image::<T>::from_vec(width, height, slice.to_vec()).unwrap(),
         Err(_) => Image::<T>::from_fn(width, height, |col, row| {
-            let cv::Point3_::<T> { x, y, z } = *mat.at_2d(row as i32, col as i32).unwrap();
+            let Point3_::<T> { x, y, z } = *mat.at_2d(row as i32, col as i32).unwrap();
             image::Rgb([x, y, z])
         }),
     }
@@ -259,7 +386,7 @@ where
 #[cfg(test)]
 mod tests {
     use crate::image;
-    use crate::opencv::{core as cv, prelude::*};
+    use crate::opencv::{core::{self as cv, Point3_}, prelude::*};
     use crate::with_opencv::MatExt;
     use crate::TryIntoCv;
     use anyhow::ensure;
@@ -293,13 +420,13 @@ mod tests {
             let mat2: Mat = (&image).try_into_cv()?;
 
             iproduct!(0..HEIGHT, 0..WIDTH).try_for_each(|(row, col)| {
-                let p1: cv::Point3_<u8> = *mat.at_2d(row as i32, col as i32)?;
+                let p1: Point3_::<u8> = *mat.at_2d(row as i32, col as i32)?;
                 let p2: image::Rgb<u8> = image[(col as u32, row as u32)];
-                let p3: cv::Point3_<u8> = *mat2.at_2d(row as i32, col as i32)?;
+                let p3: Point3_::<u8> = *mat2.at_2d(row as i32, col as i32)?;
                 ensure!(p1 == p3);
                 ensure!({
                     let a1 = {
-                        let cv::Point3_ { x, y, z } = p1;
+                        let Point3_ { x, y, z } = p1;
                         [x, y, z]
                     };
                     let a2 = p2.0;
