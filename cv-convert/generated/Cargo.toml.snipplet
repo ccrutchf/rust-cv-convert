@@ -82,6 +82,13 @@ default-features = true
 features = []
 optional = true
 
+[dependencies.ndarray_0-16]
+version = '0.16'
+package = 'ndarray'
+default-features = true
+features = []
+optional = true
+
 [dependencies.tch_0-16]
 version = '0.16'
 package = 'tch'
